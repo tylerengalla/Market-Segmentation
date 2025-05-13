@@ -1,0 +1,92 @@
+---
+title: "Market Segmentation"
+author: "Tyler Engalla"
+date: "2025-05-12"
+output: pdf_document
+---
+# Market Segmentation 
+An advertising firm, NutrientH20, needs help segmenting their target audience. We have a data set of their twitter follower's activity, and using k-means clustering we'll help them segment their audience and provide insights around their follower's interest. 
+
+To begin, we start with data pre-processing - understanding the data and removing any nulls. There are 36 different categories where each tweet of each of the followers has been labeled to help us identify their user's interest.  
+
+Users may vary widely in their number of posts, so the next step taken was to normalize the data. This helps ensures that are analysis isn't skewed by a few highly active users.  Next, we also scale the data so that we ensure fairness across the interest categories. 
+
+In order to break down these users into segments, we'll use K-means clustering. Using the elbow method, we can identify the optimal number of clusters to break the users into. From the chart, we see that the "elbow", or where the graph starts to flatten noticeably, appears around 4 clusters. This means our model does not substantially improve by adding any more clusters.
+
+```{r market, echo=FALSE, message=FALSE, warning=FALSE }
+## Market Segmentation
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(mosaic)
+
+# Load data 
+social_data <- read.csv("~/Desktop/MSBA/Classwork/Intro to Machine Learning/R/R data/social_marketing.csv")
+
+# Explore data 
+#str(social_data)
+#summary(social_data)
+
+# Check for nas - no nulls
+sum(is.na(social_data))
+
+# we can remove the user column
+social_clean <- social_data %>% select(-1)
+
+# Normalize the data to account for different activity levels - ensures fairness across users
+social_normalized <- social_clean / rowSums(social_clean) 
+
+# Standardized data - ensures fairness across the interests 
+social_scaled <- scale(social_normalized)
+
+# Determine optimal number of clusters using elbow method
+fviz_nbclust(social_scaled, kmeans, method = "wss") +
+  labs(title = "Elbow Method for Optimal Clusters", x = "Number of Clusters", y = "Total Within-Cluster Sum of Squares")
+```
+
+Printing the cluster summary we can see the average proportion of posts for each of the various categories within each cluster. These proportions reflect the relative importance or frequency of each category for the users in a given cluster, thus giving us our market segments and their interests. 
+
+```{r cluster, echo=FALSE, message=FALSE, warning=FALSE}
+# K-means 
+kmeans_results <- kmeans(social_scaled, centers = 4, nstart = 25)
+
+# Add cluster labels back to data
+social_clustered <- social_normalized %>% mutate(Cluster = as.factor(kmeans_results$cluster))
+
+# Analyze cluster characteristics
+cluster_summary <- social_clustered %>%
+  group_by(Cluster) %>%
+  summarize(across(everything(), mean))
+
+# Display the cluster summary
+print(cluster_summary)
+#write.csv(cluster_summary, "cluster_summary.csv", row.names = TRUE)
+
+# Visualize cluster centers
+fviz_cluster(kmeans_results, data = social_scaled) +
+  labs(title = "Cluster Visualization")
+```
+
+Providing our cluster summary analysis to ChatGPT allows us to quickly identify and summarize our themes within each cluster and ultimately provide NutrientH20 with a detailed analysis of their social-media audience that consists of these four different market segments: 
+
+**Cluster/ Market Segment 1 - Health and Nutrition Enthusiasts**\ 
+- Health & Nutrition: (20.5%) - A significant portion of activity revolves around health and wellness, making this the defining interest of Cluster 1.\ 
+- Cooking: (5.8%) - Reflects an interest in culinary topics, possibly tied to health and nutrition.\ 
+- Personal Fitness: (11%) - Strong engagement with fitness-related content, aligning with the health-focused theme.\ 
+
+**Cluster/ Market Segment 2 - Social Sharers**\ 
+- Chatter: (15.4%) - Highly conversational and engaged in general discussions.\ 
+- Photo Sharing: (9.2%) - Visual content sharing is a prominent activity.\ 
+- College/University: (5%) - Significant engagement with education-related topics.\ 
+- Shopping: (3.7%) - Active in discussing or sharing shopping-related content.\ 
+- Health & Nutrition: (4.7%) - While not the defining characteristic, health still resonates with this group.\ 
+
+**Cluster/ Market Segment 3 - Politically Engaged and Outdoor Enthusiasts**\ 
+- Politics: (14%) - Political discussions dominate this cluster, making it the defining feature.\ 
+- Travel: (8.6%) - A secondary focus on exploration and travel-related topics.\ 
+- Outdoors: (4.8%) - Engaged in outdoor and nature-related discussions.\ 
+
+**Cluster/ Market Segment 4 - Family-Focused and Beauty Enthusiasts**\ 
+- Family: (7.9%) - Strong interest in family-related content, suggesting a family-oriented audience.\ 
+- Beauty: (8.8%) - High engagement with beauty-related topics, a defining characteristic of this cluster.\ 
+- Cooking: (6.8%) - Culinary interests align with family and home-oriented themes.\ 
